@@ -175,28 +175,28 @@ def check_lex_order_for(a1, a2):
     return True
 
 
-def enumerate_deals(suit_sizes, hand_sizes, trump=False, reduce_perms=False):
+def enumerate_deals(suit_sizes, hand_sizes, trump=False, reduce_perms=True):
     """
         Enumerates all deals with given suit sizes and hand sizes
         :param suit_sizes: list of non-negative integers, the contingency table row sums;
          must be sorted with respect to non-trump suits
         :param hand_sizes: list of non-negative integers, the contingency table column sums
         :param trump: if True, then 0th suit is trump
-        :param reduce_perms: if True then reduce suit permutations
+        :param reduce_perms: if True, reduce suit permutations
+        :param return_values: if True, calculate variants and store them into dice;
+        otherwise, store list of values per suit or group of equal suits
         :return dict {key: value}, key is raveled contingency matrix as a tuple, value is the total number of deals
     """
     result = {}
     suit_array = np.array(suit_sizes)
     non_zero_suits = suit_array[suit_array > 0]
-    matrix_fact_prod = factorial(non_zero_suits).prod()
+    matrix_fact = factorial(non_zero_suits)
     for d in contingency_table(list(non_zero_suits), hand_sizes):
         if len(d.shape) == 1:
             d = d[None, :]
 
-        if not reduce_perms:
-            variants = matrix_fact_prod / factorial(d).prod()
-        else:
-            # check if equal suits are ordered lexicographically
+        if reduce_perms:
+            # check if equal suit sizes are ordered lexicographically
             lex_flag = False
             for i in range(int(trump), len(non_zero_suits) - 1):
                 if non_zero_suits[i] == non_zero_suits[i + 1] and not check_lex_order_for(d[i], d[i + 1]):
@@ -205,10 +205,12 @@ def enumerate_deals(suit_sizes, hand_sizes, trump=False, reduce_perms=False):
             if lex_flag:
                 continue
 
-            # calculate number of deals for given suit distribution d
+        variants = matrix_fact.prod() / factorial(d).prod()
+        if reduce_perms:
+            # calculate reduced number of deals for given suit distribution d
             begin_suit = 0
             end_suit = 1
-            variants = 1
+            reduced_variants = 1
             while end_suit <= d.shape[0]:
                 fact_prod = factorial(d[begin_suit], exact=True).prod()
                 current_variants = factorial(non_zero_suits[begin_suit], exact=True) // fact_prod
@@ -217,12 +219,13 @@ def enumerate_deals(suit_sizes, hand_sizes, trump=False, reduce_perms=False):
                     while end_suit < d.shape[0] and non_zero_suits[begin_suit] == non_zero_suits[end_suit] and \
                             np.array_equal(d[begin_suit], d[end_suit]):
                         end_suit += 1
-                variants *= comb(current_variants + end_suit - begin_suit - 1, end_suit - begin_suit, exact=True)
+                reduced_variants *= comb(current_variants + end_suit - begin_suit - 1, end_suit - begin_suit, exact=True)
                 begin_suit, end_suit = end_suit, end_suit + 1
-
+        else:
+            reduced_variants = variants
         key = np.zeros((len(suit_sizes), len(hand_sizes)), dtype=np.int32)
         key[suit_array > 0, :] = d
-        result[tuple(key.ravel())] = int(variants)
+        result[tuple(key.ravel())] = (int(variants), int(reduced_variants))
     return result
 
 
