@@ -184,7 +184,7 @@ def index2perm(index, size, invert=True):
     :param size: int, size of permutation
     :param index: int, index of permutation, 0 <= index < size!
     :param invert: bool, invert permutation
-    :return: int, index, 0 <= index < n!, n = len(perm)
+    :return: np.array
     """
     assert index < factorial(size, exact=True), "Index must less than n!"
     factoradic = decimal2factoradic(index)

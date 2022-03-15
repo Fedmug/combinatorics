@@ -68,62 +68,95 @@ def compositions(number, s):
         q[r] += 1
 
 
-def bounded_compositions(number, s, bound: [list]):
+def bounded_compositions(n, s, bound: [list], verbose=False):
     """
         Generates all compositions (ordered partitions) of the form number = q[1] + ... + q[s]
         with restriction 0 <= q[j] <= bound[j]; see Knuth, Art of Programming, 7.2.1.3, problem 60
-        :param number: int, integer to split into summands
+        :param n: int, integer to split into summands
         :param s: int, number of summands
         :param bound: list of non-negative integers of size s
         :return sequence of np.array with shape (s,)
     """
     # Q1
-    if sum(bound) < number:
+    if sum(bound) < n:
         return
     if s == 1:
-        yield np.array([number], dtype=int)
+        yield np.array([n], dtype=int)
         return
 
     q = np.zeros(s, dtype=int)
-    x = number
+    x = n
 
+    Q2 = 0
     while True:
         # Q2
+        if verbose:
+            print(f"Q2, iteration {Q2}")
+        Q2 += 1
+
         j = 0
         while x > bound[j]:
+            # x + sum(q) = n
             q[j] = bound[j]
             x -= bound[j]
             j += 1
+
+        # x <= bound[j]
+        # q[0] = bound[0], ..., q[j - 1] = bound[j - 1]
+        # bound[j - 1] > 0
         q[j] = x
+        # sum(q) = n
+        if verbose:
+            print(f"After Q2: j = {j}, x = {x}, q = {q}")
 
         # Q3
+        Q3 = 0
         while True:
+            if verbose:
+                print(f" iteration {Q3} of the cycle Q3")
+            Q3 += 1
             yield q
 
             flag = False
             # Q4
             if j == 0:
+                # what if q[0] = 0?
                 x = q[0] - 1
                 j = 1
+                if verbose:
+                    print(f" Q4: j == 0 => x = {x}, j = {j}, flag = {flag}, q={q}")
             else:
                 if q[0] == 0:
+                    # what if q[j] = 0?
                     x = q[j] - 1
-                    q[j] = 0
+                    q[j] = 0  # sum(q) = n - x + 1
                     j += 1
+                    if verbose:
+                        print(f" Q4: j != 0 and q[0] == 0 => x = {x}, j = {j}, flag = {flag}, q = {q}")
                 else:
                     flag = True
+                    if verbose:
+                        print(f" Q4: j != 0 and q[0] != 0 => flag = {flag}, q = {q}")
 
             if not flag:
                 # Q5
+                if verbose:
+                    print(f" Q5: flag = {flag}")
+                Q5 = 0
                 while j < s and q[j] == bound[j]:
                     x += bound[j]
                     q[j] = 0
                     j += 1
+                    if verbose:
+                        print(f"  after iteration {Q5} of Q5: x = {x}, j = {j}, q = {q}")
+                    Q5 += 1
                 if j >= s:
                     return
 
                 # Q6
                 q[j] += 1
+                if verbose:
+                    print(f" Q6: x = {x}, q = {q}")
                 if x == 0:
                     q[0] = 0
                     continue
@@ -131,8 +164,14 @@ def bounded_compositions(number, s, bound: [list]):
                     break
 
             # Q7
+            Q7 = 0
+            if verbose:
+                print(f" Begin of Q7: j = {j}, q = {q}")
             while q[j] == bound[j]:
                 j += 1
+                if verbose:
+                    print(f"  After iteration {Q7} of Q7: j = {j}")
+                Q7 += 1
                 if j >= s:
                     return
             q[j] += 1
@@ -140,6 +179,8 @@ def bounded_compositions(number, s, bound: [list]):
             q[j] -= 1
             if q[0] == 0:
                 j = 1
+            if verbose:
+                print(f"After Q7: j = {j}, q = {q}")
 
 
 def contingency_table(row_sums, column_sums: [list]):
@@ -185,7 +226,8 @@ def enumerate_deals(suit_sizes, hand_sizes, trump=False, reduce_perms=True):
         :param reduce_perms: if True, reduce suit permutations
         :param return_values: if True, calculate variants and store them into dice;
         otherwise, store list of values per suit or group of equal suits
-        :return dict {key: value}, key is raveled contingency matrix as a tuple, value is the total number of deals
+        :return dict {key: value}, key is raveled contingency matrix as a tuple,
+        value is a tuple of the total number of deals and the reduced one
     """
     result = {}
     suit_array = np.array(suit_sizes)
@@ -219,7 +261,8 @@ def enumerate_deals(suit_sizes, hand_sizes, trump=False, reduce_perms=True):
                     while end_suit < d.shape[0] and non_zero_suits[begin_suit] == non_zero_suits[end_suit] and \
                             np.array_equal(d[begin_suit], d[end_suit]):
                         end_suit += 1
-                reduced_variants *= comb(current_variants + end_suit - begin_suit - 1, end_suit - begin_suit, exact=True)
+                reduced_variants *= comb(current_variants + end_suit - begin_suit - 1, end_suit - begin_suit,
+                                         exact=True)
                 begin_suit, end_suit = end_suit, end_suit + 1
         else:
             reduced_variants = variants
@@ -238,6 +281,34 @@ def generate_suit_size_distributions(hand_sizes, n_suits=4, max_suit_size=8, tru
                                       not is_sorted(np.delete(suit_sizes, trump_idx))):
             continue
         yield suit_sizes
+
+
+def get_suit_sizes(n_suits, n_hands=3, max_hand_size=10, max_suit_size=8):
+    result = []
+    for hand_size in range(1, min(max_hand_size, n_suits * max_suit_size // n_hands) + 1):
+        for suit_sizes in generate_suit_size_distributions(n_hands * [hand_size], n_suits, max_suit_size, 0):
+            if np.min(suit_sizes) > 0:
+                result.append(np.copy(suit_sizes))
+    return np.vstack(result)
+
+
+def get_contingency_matrices(suit_sizes, n_hands=3, reduce_perms=True):
+    matrices = []
+    for i in range(suit_sizes.shape[0]):
+        hands_sizes = suit_sizes[i].sum() // n_hands * np.ones(n_hands, dtype=np.int8)
+        for table in contingency_table(suit_sizes[i], hands_sizes):
+            if reduce_perms:
+                # check if equal suit sizes are ordered lexicographically
+                lex_flag = False
+                for j in range(1, len(suit_sizes[i]) - 1):
+                    if suit_sizes[i][j] == suit_sizes[i][j + 1] and \
+                            not check_lex_order_for(table[j], table[j + 1]):
+                        lex_flag = True
+                        break
+                if lex_flag:
+                    continue
+            matrices.append(np.copy(table)[None, :])
+    return np.concatenate(matrices, axis=0)
 
 
 def get_card_distributions(hand_size, n_hands=3, max_suit_size=8, trump=False, reduce_perms=True):

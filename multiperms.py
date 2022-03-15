@@ -1,13 +1,16 @@
 import numpy as np
 
 
-def multinomial(ns):
+def multinomial(ns: list[int]):
+    """
+    Calculates multinomial coefficient (n; ns), n = ns[1] + ns[2] + ... + ns[k]
+    :param ns: list of ints; preferred to be sorted in the non-decreasing order
+    :return: int, multinomial coefficient
+    """
     if len(ns) == 1:
         return 1
-    if not isinstance(ns, np.ndarray):
-        ns = np.array(ns)
-    res, i = 1, ns.sum()
-    for a in np.delete(ns, np.argmax(ns)):
+    res, i = 1, sum(ns)
+    for a in ns[:-1]:
         for j in range(1, a+1):
             res *= int(i)
             res //= int(j)
