@@ -1,6 +1,5 @@
 import numpy as np
-from itertools import combinations
-from combinations import check_lex_order_for, bounded_compositions
+from combinations import check_lex_order_for
 from multiperms import multinomial
 from sympy.utilities.iterables import multiset_permutations
 
@@ -80,8 +79,8 @@ class PrefContingencyTable:
     def count_moves(self, trump: bool, reduce: bool, suit_moves=None):
         """
         :param trump: True, if 0th suit is trump
-        :param reduce: if True, then reduce equivalent moves
-        :param suit_moves: dict with average reduced moves with given suit distribution
+        :param reduce: if True, then reduce equivalent (dense) moves
+        :param suit_moves: precalculated dict with average reduced moves over given suit sizes distribution
         :return: np.array with shape (n_hands,)
         """
         move_matrix = np.array(self.matrix, dtype=np.float32)
@@ -105,6 +104,9 @@ class PrefContingencyTable:
         for i in range(1, move_matrix.shape[1]):
             result[i] = move_cum_prod[:, i].sum() / move_cum_prod[:, i - 1].sum()
         return result
+
+    def __eq__(self, other):
+        return np.array_equal(self.matrix, other.matrix)
 
     def __repr__(self):
         result = ""

@@ -22,14 +22,14 @@ def multiperm2index(multiperm, ns):
     """
         Calculates index of a multiset permutation,
         see Knuth, Art of Programming, 7.2.1.2, ex. 4
-        :param ns: np.array, sizes of elements of the multiset, ns = (n_1, ..,, n_k)
-        :param multiperm: np.array, permutation of the multiset {n_1*0, ..., n_k*(k-1)}
+        :param ns: list, sizes of elements of the multiset, ns = (n_1, ..,, n_k)
+        :param multiperm: list, permutation of the multiset {n_1*0, ..., n_k*(k-1)}
         :return: int, index, 0 <= index < (n; ns) (multinomial coefficient)
     """
     result = 0
     for element in multiperm:
         multi_coef = multinomial(ns)
-        n = ns.sum()
+        n = sum(ns)
         for j in range(element):
             result += multi_coef * ns[j] // n
         ns[element] -= 1
