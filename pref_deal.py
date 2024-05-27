@@ -7,6 +7,7 @@ NUMBER_OF_SUITS = 4
 MAX_SUIT_SIZE = 8
 SPADES_SYMBOL, CLUBS_SYMBOL, DIAMONDS_SYMBOL, HEARTS_SYMBOL = "\u2660", "\u2663", "\u2666", "\u2665"
 SUIT_SYMBOLS = ("\u2660", "\u2663", "\u2666", "\u2665")
+SUIT_SYMBOLS_TRUMP = ('\u2664', '\u2667', '\u2662', '\u2661')
 RANK_TO_INDEX = {'7': 0, '8': 1, '9': 2, '10': 3, 'T': 3, 'J': 4, 'Q': 5, 'K': 6, 'A': 7}
 # RANK_BIG_TO_INDEX = {'7': 7, '8': 6, '9': 5, '10': 4, 'T': 4, 'J': 3, 'Q': 2, 'K': 1, 'A': 0}
 INDEX_TO_RANK_CHAR = ('7', '8', '9', 'T', 'J', 'Q', 'K', 'A')
@@ -56,6 +57,12 @@ def multiperm2suit_codes(multiperm, n_hands):
 
 
 def get_tightened_matrix(matrix, to_ace: bool, suit_indices=None):
+    """
+    :param matrix: np.array of the shape (n_suits, n_hands)
+    :param to_ace: if True, the shift cards towards Ace, otherwise to 7
+    :param suit_indices: specifies suits to be tightened, if None, then try all suits
+    :return:
+    """
     if suit_indices is None:
         suit_indices = range(matrix.shape[0])
     result = np.zeros_like(matrix)
@@ -185,7 +192,10 @@ class PrefDealMatrix:
         for j in range(self.card_matrix.shape[1]):
             for i in range(self.card_matrix.shape[0]):
                 # result += SUIT_SYMBOLS[self._suit_perm[i]]
-                result += SUIT_SYMBOLS[i]
+                if i + 1 == self.trump:
+                    result += SUIT_SYMBOLS_TRUMP[i]
+                else:
+                    result += SUIT_SYMBOLS[i]
                 # if self.card_matrix[self._suit_perm[i], j] == 0:
                 if self.card_matrix[i, j] == 0:
                     suit_string = '-'

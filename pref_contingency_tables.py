@@ -9,7 +9,7 @@ SUIT_SYMBOLS = ("\u2660", "\u2663", "\u2666", "\u2665")
 #                         'c': 1, 'clubs': 1, "\u2663": 1,
 #                         'd': 2, 'diamonds': 2, "\u2666": 2,
 #                         'h': 3, 'hearts': 3, "\u2665": 3}
-# NUMBER_OF_SUITS = 4
+NUMBER_OF_SUITS = 4
 
 
 def permute_rows(matrix, index):
@@ -22,7 +22,7 @@ def permute_rows(matrix, index):
 
 
 def perm2suit(perm, n_hands=3):
-    result = [[] for i in range(n_hands)]
+    result = [[int] for _ in range(n_hands)]
     for i, hand_index in enumerate(perm):
         result[hand_index].append(i)
     return result
@@ -58,13 +58,68 @@ def widow_column2code(col: np.array):
 
 
 class PrefContingencyTable:
+    BITS_PER_VALUE = 3
+    BITS_PER_DISPATCH = 2
+    BITS_PER_WIDOW = 4
+    BITS_PER_NUMBER_OF_SUITS = 2
+
     def __init__(self, matrix: np.array):
         """
-        :param matrix: contingency table with shape (n_suits, n_hands)
+        :param matrix: contingency table with shape (n_suits, n_hands), must not have zero rows
         """
         self.matrix = np.copy(matrix)
+
+        # 2 bits
+        self._dispatch = 0
+
+        # up to 12 bits, 3 bits per suit, used if hand_size < 10
+        self._suit_sizes_code = 0
+
+        # up to 18 bits, 3 bits per element, encodes top left corner of the contingency table
+        self._contingency_table_code = 0
+
+        self._suit_sizes_offset = self.BITS_PER_DISPATCH
+        self._contingency_table_offset = 0
+
         if len(self.matrix.shape) == 1:
             self.matrix = self.matrix[None, :]
+
+        self._set_offsets()
+        self._set_codes()
+
+    def _set_offsets(self):
+        suit_sizes = np.sum(self.matrix, dtype=np.int8, axis=1)
+        if suit_sizes.sum() >= 30:
+            self._suit_sizes_offset += self.BITS_PER_WIDOW
+            if suit_sizes.sum() == 30:
+                self._dispatch = 1
+                self._contingency_table_offset = NUMBER_OF_SUITS*self.BITS_PER_VALUE
+        elif suit_sizes.shape[0] == NUMBER_OF_SUITS:
+            self._dispatch = 2
+            self._contingency_table_offset = NUMBER_OF_SUITS*self.BITS_PER_VALUE
+        else:
+            self._dispatch = 3
+            self._suit_sizes_offset += self.BITS_PER_NUMBER_OF_SUITS
+            self._contingency_table_offset = suit_sizes.shape[0]*self.BITS_PER_VALUE
+
+    def _set_codes(self):
+        suit_sizes = np.sum(self.matrix, dtype=np.int8, axis=1)
+        for i in range(suit_sizes.shape[0]):
+            self._suit_sizes_code += int(suit_sizes[i] - 1) << (self._suit_sizes_offset + self.BITS_PER_VALUE*i)
+
+        for i in range(self.matrix.shape[0] - 1):
+            first_hand = self.matrix[i][0]
+            second_hand = self.matrix[i][1]
+            if first_hand == 8:
+                first_hand = 7
+                second_hand = 2
+            elif second_hand == 8:
+                first_hand = 2
+                second_hand = 7
+            self._contingency_table_code += int(first_hand) << \
+                (self._suit_sizes_offset + self._contingency_table_offset + 2*i*self.BITS_PER_VALUE)
+            self._contingency_table_code += int(second_hand) << \
+                (self._suit_sizes_offset + self._contingency_table_offset + (2*i + 1)*self.BITS_PER_VALUE)
 
     def count_deals(self):
         """

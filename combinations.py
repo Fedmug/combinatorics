@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.special import binom, comb, factorial
+from multiperms import multinomial
 
 
 def partitions(number, m, lower_bound=1):
@@ -49,6 +50,9 @@ def compositions(number, s):
     assert s > 0, "Number of summands should be positive!"
     if s == 1:
         yield np.array([number], dtype=int)
+        return
+    if number == 0:
+        yield np.zeros(s, dtype=int)
         return
     q = np.zeros(s, dtype=int)
     r = None
@@ -216,6 +220,29 @@ def check_lex_order_for(a1, a2):
     return True
 
 
+def deal_variants(matrix, trump=False, reduce=False):
+    result = 1
+    if not reduce:
+        for i in range(matrix.shape[0]):
+            result *= multinomial(matrix[i])
+        return result
+
+    begin_suit = 0
+    end_suit = 1
+    suit_sizes = matrix.sum(axis=1)
+    while end_suit <= matrix.shape[0]:
+        fact_prod = factorial(matrix[begin_suit], exact=True).prod()
+        current_variants = factorial(suit_sizes[begin_suit], exact=True) // fact_prod
+
+        if not trump or end_suit != 1:
+            while end_suit < matrix.shape[0] and suit_sizes[begin_suit] == suit_sizes[end_suit] and \
+                    np.array_equal(matrix[begin_suit], matrix[end_suit]):
+                end_suit += 1
+        result *= comb(current_variants + end_suit - begin_suit - 1, end_suit - begin_suit, exact=True)
+        begin_suit, end_suit = end_suit, end_suit + 1
+    return result
+
+
 def enumerate_deals(suit_sizes, hand_sizes, trump=False, reduce_perms=True):
     """
         Enumerates all deals with given suit sizes and hand sizes
@@ -224,8 +251,6 @@ def enumerate_deals(suit_sizes, hand_sizes, trump=False, reduce_perms=True):
         :param hand_sizes: list of non-negative integers, the contingency table column sums
         :param trump: if True, then 0th suit is trump
         :param reduce_perms: if True, reduce suit permutations
-        :param return_values: if True, calculate variants and store them into dice;
-        otherwise, store list of values per suit or group of equal suits
         :return dict {key: value}, key is raveled contingency matrix as a tuple,
         value is a tuple of the total number of deals and the reduced one
     """
